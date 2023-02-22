@@ -4,6 +4,7 @@ import {
   type NextAuthOptions,
   type DefaultSession,
 } from "next-auth";
+import { JWT } from "next-auth/jwt";
 import DiscordProvider from "next-auth/providers/discord";
 import { env } from "~/env.mjs";
 
@@ -28,6 +29,15 @@ declare module "next-auth" {
   // }
 }
 
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    name: string;
+    email: string;
+    picture: string;
+  }
+}
+
 /**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
  *
@@ -35,9 +45,12 @@ declare module "next-auth" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    session({ session, user }) {
+    signIn({ user }) {
+      return user.id === env.ADMIN_ID;
+    },
+    session({ session, token }) {
       if (session.user) {
-        session.user.id = user.id;
+        session.user.id = token.id;
         // session.user.role = user.role; <-- put other properties on the session here
       }
       return session;
