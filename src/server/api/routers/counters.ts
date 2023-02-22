@@ -27,8 +27,35 @@ async function getGameIdFromName(gameName: string) {
   return gameData.id;
 }
 
+function incrementFactory(amount: number) {
+  return async ({ input }: { input: { game: number; name: string; }; }) => {
+    const response = await supabaseSudoClient.from("counters")
+      .select()
+      .eq("name", input.name)
+      .eq("game", input.game)
+      .maybeSingle();
+
+    if (!response.data) {
+      throw new Error(`Counter ${input.name} does not exist for game ${input.game}`);
+    }
+
+    const count = response.data.count;
+    const newCount = count + amount;
+
+    // prevent going lower than 0
+    if (newCount < 0) return;
+
+    await supabaseSudoClient.from("counters").upsert({
+      count: newCount,
+      name: input.name,
+      game: input.game,
+      id: response.data.id
+    });
+  };
+}
+
 export const countersRouter = createTRPCRouter({
-  getSingleCounter: publicProcedure
+  get: publicProcedure
     .input(z.object({ game: z.string(), name: z.string() }))
     .query(async ({ input }) => {
       const gameId = await getGameIdFromName(input.game);
@@ -42,47 +69,51 @@ export const countersRouter = createTRPCRouter({
       return data?.count ?? 0;
     }),
 
-  getAllForGame: publicProcedure
-    .input(z.object({ game: z.string() }))
+  list: publicProcedure
+    .input(z.object({ game: z.number() }))
     .query(async ({ input }) => {
-      const gameId = await getGameIdFromName(input.game);
       const { data } = await supabaseSudoClient.from("counters")
         .select("name, count")
-        .eq("game", gameId);
+        .eq("game", input.game);
 
       return data ?? [];
     }),
 
   add: protectedProcedure
-    .input(z.object({ game: z.string(), name: z.string() }))
+    .input(z.object({ game: z.number(), name: z.string() }))
     .mutation(async ({ input }) => {
-      const gameId = await getGameIdFromName(input.game);
+      const { data } = await supabaseSudoClient.from("counters")
+        .select()
+        .eq("name", input.name)
+        .eq("game", input.game)
+        .maybeSingle();
+
+      if (data) {
+        throw new Error(`${input.name} already exists for game ${input.game}`);
+      }
+
+      await supabaseSudoClient.from("counters")
+        .insert({ game: input.game, name: input.name, count: 0 });
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ game: z.number(), name: z.string() }))
+    .mutation(async ({ input }) => {
+      const { error } = await supabaseSudoClient.from("counters")
+        .delete()
+        .eq("name", input.name)
+        .eq("game", input.game);
+
+      if (error) {
+        throw error;
+      }
     }),
 
   increment: protectedProcedure
-    .input(z.object({ game: z.string(), name: z.string() }))
-    .mutation(async ({ input }) => {
-      const gameId = await getGameIdFromName(input.game);
+    .input(z.object({ game: z.number(), name: z.string() }))
+    .mutation(incrementFactory(1)),
 
-      const response = await supabaseSudoClient.from("counters")
-        .select()
-        .eq("name", input.name)
-        .eq("game", gameId)
-        .maybeSingle();
-
-      if (!response.data) {
-        await supabaseSudoClient.from("counters").insert({ name: input.name, game: gameId, count: 1 });
-        return;
-      }
-
-      const count = response.data.count;
-      const newCount = count + 1;
-      await supabaseSudoClient.from("counters").upsert({
-        count: newCount,
-        name: input.name,
-        game: gameId,
-        id: response.data.id
-      });
-    }),
+  decrement: protectedProcedure
+    .input(z.object({ game: z.number(), name: z.string() }))
+    .mutation(incrementFactory(-1)),
 });
-

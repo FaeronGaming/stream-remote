@@ -10,7 +10,7 @@ const channel = supabasePublicClient.channel('counter').subscribe(status => {
 });
 
 export default function Overlay() {
-  const { data: deathCount, refetch } = api.counters.getSingleCounter.useQuery({ game: "Jedi Fallen Order", name: "Deaths" }, { initialData: 0, refetchOnWindowFocus: false });
+  const { data: deathCount, refetch } = api.counters.get.useQuery({ game: "Jedi Fallen Order", name: "Deaths" }, { initialData: 0, refetchOnWindowFocus: false });
 
   useEffect(() => {
     channel.on("broadcast", { event: "fallen order death" }, () => {
