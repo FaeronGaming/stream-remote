@@ -1,8 +1,7 @@
 import { useSession, signIn } from "next-auth/react";
-import { forwardRef, useCallback, useEffect, useState, type ReactNode } from "react";
+import { forwardRef, useCallback, useState, type ReactNode } from "react";
 import { api } from "~/utils/api";
 import { supabasePublicClient } from "~/utils/supabasePublicClient";
-import { RealtimeChannel } from "@supabase/supabase-js";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
 import { PlusCircleIcon, MinusCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { useFloating, useClick } from "@floating-ui/react";
@@ -17,8 +16,8 @@ import {
 type Game = { id: number; name: string; };
 type Counter = { name: string; count: number; };
 
-const isBrowser = typeof window !== "undefined";
-const counterChannel =  isBrowser && supabasePublicClient.channel("counter").subscribe(status => {
+const isServer = typeof window === "undefined";
+const counterChannel =  isServer ? undefined : supabasePublicClient.channel("counter").subscribe(status => {
   console.log(`Counter Subscription: ${status}`);
 });
 
@@ -115,7 +114,8 @@ function AddCounter({ game }: { game: Game; }) {
     onSuccess() {
       setCounterName('');
       setIsOpen(false);
-      void trpcUtils.counters.list.invalidate()
+      void trpcUtils.counters.list.invalidate();
+      void counterChannel?.send({ type: "broadcast", event: "updated" });
     },
     onError() {
       console.log('foobar');
@@ -185,6 +185,20 @@ function CounterControl({ counter, game }: { counter: Counter; game: Game; }) {
   const deleteCounterMutation = api.counters.delete.useMutation({
     onSuccess() {
       void trpcUtils.counters.list.invalidate();
+      void counterChannel?.send({ type: "broadcast", event: "updated" });
+    }
+  });
+  
+  const incrementMutation = api.counters.increment.useMutation({
+    onSuccess() {
+      void trpcUtils.counters.list.invalidate();
+      void counterChannel?.send({ type: "broadcast", event: "updated" });
+    }
+  });
+  const decrementMutation = api.counters.decrement.useMutation({
+    onSuccess() {
+      void trpcUtils.counters.list.invalidate();
+      void counterChannel?.send({ type: "broadcast", event: "updated" });
     }
   });
 
@@ -196,9 +210,9 @@ function CounterControl({ counter, game }: { counter: Counter; game: Game; }) {
           {counter.name}
         </div>
         <div className="flex flex-row items-center gap-x-2">
-          <PlusCircleIcon className="h-7" />
+          <PlusCircleIcon className="h-7" onClick={() => incrementMutation.mutate({ name: counter.name, game: game.id })} />
           {counter.count}
-          <MinusCircleIcon className="h-7" />
+          <MinusCircleIcon className="h-7" onClick={() => decrementMutation.mutate({ name: counter.name, game: game.id })} />
         </div>
       </div>
       {isOpen && (

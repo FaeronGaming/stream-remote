@@ -4,7 +4,6 @@ import {
   type NextAuthOptions,
   type DefaultSession,
 } from "next-auth";
-import { JWT } from "next-auth/jwt";
 import DiscordProvider from "next-auth/providers/discord";
 import { env } from "~/env.mjs";
 

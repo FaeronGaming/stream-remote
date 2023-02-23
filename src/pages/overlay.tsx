@@ -1,31 +1,51 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Head from "next/head";
-import { getQueryKey } from '@trpc/react-query';
 import { api } from "~/utils/api";
 import { supabasePublicClient } from "~/utils/supabasePublicClient";
-import { useQueryClient } from "@tanstack/react-query";
 
-const channel = supabasePublicClient.channel('counter').subscribe(status => {
+const isServer = typeof window === "undefined";
+const channel = isServer ? undefined : supabasePublicClient.channel('counter').subscribe(status => {
   console.log(`Subscription Status: ${status}`);
 });
 
+function CounterList({ game }: { game?: number; }) {
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const { data: counters } = api.counters.list.useQuery({ game: game! }, {
+    enabled: Boolean(game)
+  });
+
+  return !counters ? null : (
+    <div className="absolute inset-y-0 right-0 w-1/4 py-11">
+      <div className="h-full flex flex-col-reverse">
+        {counters.map(({ name, count }) => (
+          <div key={name}>{name}: {count}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Overlay() {
-  const { data: deathCount, refetch } = api.counters.get.useQuery({ game: "Jedi Fallen Order", name: "Deaths" }, { initialData: 0, refetchOnWindowFocus: false });
+  const trpcUtils = api.useContext();
+  const { data: game } = api.games.get.useQuery({ name: "Jedi Fallen Order" }, { refetchOnWindowFocus: false });
 
   useEffect(() => {
-    channel.on("broadcast", { event: "fallen order death" }, () => {
+    if (!trpcUtils) return;
+
+    channel?.on("broadcast", { event: "updated" }, () => {
       console.log('triggering refetch');
-      void refetch();
+      void trpcUtils.counters.list.invalidate();
     });
-  }, [refetch]);
+  }, [trpcUtils]);
 
   return (
     <>
       <Head>
         <title>Stream Overlay</title>
       </Head>
-      <main className="min-h-screen">
-        <div className="absolute bottom-0 right-0">Deaths: {deathCount}</div>
+      <main className="min-h-screen font-mono text-3xl">
+        <CounterList game={game?.id} />
+        {/* <div className="absolute bottom-0 right-0">Deaths: {deathCount}</div> */}
       </main>
     </>
   );
