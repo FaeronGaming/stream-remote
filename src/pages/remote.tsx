@@ -290,8 +290,9 @@ function Controls() {
 }
 
 export default function Remote() {
+  const isAuthenticated = useIsAuthenticated();
   return (
-    <main className="flex min-h-screen flex-col bg-gradient-to-b from-[#2e026d] to-[#15162c]">
+    <main className={`flex min-h-screen flex-col bg-gradient-to-b from-[#2e026d] to-[#15162c] ${!isAuthenticated ? 'items-center justify-center' : ''}`}>
       <SignInButton />
       <Controls />
     </main>
