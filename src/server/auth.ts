@@ -5,6 +5,8 @@ import {
   type DefaultSession,
 } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
+import { type DefaultJWT } from "next-auth/jwt";
+import fetch from "node-fetch";
 import { env } from "~/env.mjs";
 
 /**
@@ -29,11 +31,8 @@ declare module "next-auth" {
 }
 
 declare module "next-auth/jwt" {
-  interface JWT {
+  interface JWT extends DefaultJWT {
     id: string;
-    name: string;
-    email: string;
-    picture: string;
   }
 }
 
@@ -44,8 +43,14 @@ declare module "next-auth/jwt" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    signIn({ user }) {
-      return user.id === env.ADMIN_ID;
+    async signIn({ user, account }) {
+      const response = await fetch("https://discord.com/api/users/@me/guilds", {
+        headers: {
+          Authorization: `Bearer ${account?.access_token || ''}`
+        }
+      });
+      const guilds = await response.json() as Array<{ id: string; }>;
+      return guilds.some(({ id }) => id === env.PEANUT_GALLERY)
     },
     session({ session, token }) {
       if (session.user) {
@@ -59,6 +64,11 @@ export const authOptions: NextAuthOptions = {
     DiscordProvider({
       clientId: env.DISCORD_CLIENT_ID,
       clientSecret: env.DISCORD_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: 'identify guilds'
+        }
+      },
     }),
     /**
      * ...add more providers here.
