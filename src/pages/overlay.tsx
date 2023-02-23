@@ -15,7 +15,7 @@ function CounterList({ game }: { game?: number; }) {
   });
 
   return !counters ? null : (
-    <div className="absolute inset-y-0 right-0 w-1/4 py-11 text-white font-outline-2">
+    <div className="absolute inset-y-0 right-0 w-1/4 py-11 text-white">
       <div className="h-full flex flex-col-reverse">
         {counters.map(({ name, count }) => (
           <div key={name}>{name}: {count}</div>
@@ -43,7 +43,7 @@ export default function Overlay() {
       <Head>
         <title>Stream Overlay</title>
       </Head>
-      <main className="min-h-screen font-mono text-3xl">
+      <main className="min-h-screen font-mono text-5xl">
         <CounterList game={game?.id} />
       </main>
     </>
